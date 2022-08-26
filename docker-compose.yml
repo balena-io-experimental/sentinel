@@ -1,6 +1,6 @@
 version: '2'
 services:
-  app:
-    build: ./sentinel
+  sentinel:
+    build: ./app
     privileged: true
     network_mode: host

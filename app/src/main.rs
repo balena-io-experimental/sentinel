@@ -10,7 +10,6 @@ use sysinfo::{
 };
 use clap::Parser;
 use anyhow::{Result};
-// use log::{info, warn};
 
 #[derive(Parser)]
 struct Cli {
@@ -19,7 +18,6 @@ struct Cli {
 }
 
 fn main() -> Result<()> {
-    env_logger::init();
     let args = Cli::parse();
     println!("Getting processes' information...");
     let mut t = System::new_all();
