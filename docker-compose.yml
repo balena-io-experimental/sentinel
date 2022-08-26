@@ -1,0 +1,6 @@
+version: '2'
+services:
+  app:
+    build: ./sentinel
+    privileged: true
+    network_mode: host
