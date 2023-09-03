@@ -88,4 +88,4 @@ COPY --from=builder /build/app/target/release/sentinel .
 # COPY --from=builder /build/app/assets assets
 
 # Launch application
-ENTRYPOINT ["./sentinel", "uptime"]
+ENTRYPOINT ["./sentinel", "help"]

@@ -1,6 +1,17 @@
 version: '2'
+
 services:
   sentinel:
     build: ./app
     privileged: true
     network_mode: host
+    tty: true
+    restart: always
+    labels:
+      io.balena.features.balena-api: '1'
+      io.balena.features.dbus: '1'
+      io.balena.features.balena-socket: '1'
+    environment:
+      CHECKS: 'cpus system'
+      DELAY_SECONDS: 30
+      RUST_LOG: 'info'
