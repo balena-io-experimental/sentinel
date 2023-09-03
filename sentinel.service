@@ -1,0 +1,13 @@
+[Unit]
+Description=Balena sentinel
+Wants=balena.service
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=10s
+WatchdogSec=180
+ExecStartPre=-/usr/bin/balena stop sentinel
+ExecStartPre=/bin/systemctl is-active balena.service
+ExecStart=/usr/bin/start-balena-supervisor
+ExecStop=-/usr/bin/balena stop balena_supervisor

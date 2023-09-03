@@ -1,0 +1,82 @@
+#!/bin/sh
+
+
+# get sentinel container name
+SENTINEL_CONTAINER_NAME=$(balena ps --format "{{.Names}}" | awk '/sentinel/')
+SENTINEL_IMAGE_ID=$(balena inspect --format='{{.Id}}' "$SENTINEL_CONTAINER_NAME")
+SENTINEL_CONTAINER_IMAGE_ID=$(balena inspect --format='{{.Image}}' $SENTINEL_CONTAINER_NAME || echo "")
+
+# shellcheck disable=SC1091
+
+hasValueChanged() {
+    KEY="$1"
+    NEW_VALUE="$2"
+    COLLECTION="$3"
+    CURRENT_VALUE=$(echo "$COLLECTION" | jq -r ".$KEY")
+
+    if [ "$CURRENT_VALUE" != "$NEW_VALUE" ];then
+        echo "$KEY has changed!"
+    else
+        return 1
+    fi
+}
+
+configIsUnchanged() {
+
+    SENTINEL_CONTAINER_ENV_JSON="$(balena inspect $SENTINEL_CONTAINER_NAME | jq '.[0].Config.Env | map(.| { (.[0:index("=")]): .[index("=")+1:] }) | add')"
+
+    if hasValueChanged "CHECKS"       "$CHECKS" "$SENTINEL_CONTAINER_ENV_JSON" || \
+    hasValueChanged "DELAY_SECONDS"        "$DELAY_SECONDS" "$SENTINEL_CONTAINER_ENV_JSON" ; then
+        echo "Container config has changed!"
+        return 1
+    else
+        echo "Container config has not changed"
+        return 0
+    fi
+}
+
+runSentinel() {
+    balena rm --force balena_supervisor resin_supervisor 2>/dev/null || true
+    balena run --privileged --name sentinel \
+        --restart=always \
+        --net=host \
+        --cidenv=SENTINEL_CONTAINER_ID \
+        --mount type=bind,source=/var/run/balena-engine.sock,target=/var/run/balena-engine.sock \
+        --mount type=bind,source="$CONFIG_PATH",target=/boot/config.json \
+        --mount type=bind,source=/mnt/data/apps.json,target=/boot/apps.json \
+        --mount type=bind,source=/resin-data/balena-supervisor,target=/data \
+        --mount type=bind,source=/proc/net/fib_trie,target=/mnt/fib_trie \
+        --mount type=bind,source=/var/log/supervisor-log,target=/var/log \
+        --mount type=bind,source=/etc/ssl/certs,target=/etc/ssl/certs,readonly \
+        --mount type=bind,source=/usr/share/ca-certificates,target=/usr/share/ca-certificates,readonly \
+        --mount type=bind,source=/,target=/mnt/root \
+        -e DOCKER_ROOT=/mnt/root/var/lib/docker \
+        -e DOCKER_SOCKET=/var/run/balena-engine.sock \
+        -e "BOOT_MOUNTPOINT=$BALENA_BOOT_MOUNTPOINT" \
+        -e "MIXPANEL_TOKEN=$MIXPANEL_TOKEN" \
+        -e "DELTA_ENDPOINT=$DELTA_ENDPOINT" \
+        -e "LED_FILE=${LED_FILE}" \
+        -e "LISTEN_PORT=$LISTEN_PORT" \
+        -e "NODE_EXTRA_CA_CERTS=${NODE_EXTRA_CA_CERTS}" \
+        -e "SENTINEL_IMAGE=${SENTINEL_IMAGE}" \
+        "${SENTINEL_IMAGE}"
+}
+
+if [ ! -d "/resin-data/balena-supervisor" ]; then
+        mkdir -p "/resin-data/balena-supervisor"
+fi
+if [ ! -d "/var/log/supervisor-log" ]; then
+    mkdir -p "/var/log/supervisor-log"
+fi
+
+# if [ -z "$SENTINEL_IMAGE_ID" ]; then
+    # No supervisor image exists on the device, try to pull it
+#    systemctl start update-balena-supervisor
+
+if [ "$SENTINEL_IMAGE_ID" = "$SENTINEL_CONTAINER_IMAGE_ID" ] && configIsUnchanged; then
+    # Supervisor image exists, and the current supervisor container is created from
+    balena start --attach $SENTINEL_CONTAINER_NAME
+else
+    # No supervisor container exists or there's a different supervisor image to run
+    runSentinel
+fi
