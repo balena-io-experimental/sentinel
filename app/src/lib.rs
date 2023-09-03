@@ -5,6 +5,8 @@ use sysinfo::Signal::*;
 use sysinfo::{
     CpuExt, NetworkExt, NetworksExt, Pid, ProcessExt, Signal, System, SystemExt, UserExt,
 };
+use log::{info, warn};
+use std::fs;
 
 const signals: &[Signal] = &[
     Hangup,
@@ -127,6 +129,17 @@ pub fn print_help(mut writer: impl std::io::Write) {
         "pid                : Display this example's PID"
     );
     writeln!(writer, "quit               : Exit the program");
+}
+
+// pub fn check_networking() {
+//     log!("");    
+// }
+
+pub fn check_os() {
+    let data = fs::read_to_string("/etc/os-release").expect("Unable to read file");
+    println!("{}", data);
+    println!("info log");
+    info!("{}", data);
 }
 
 pub fn system_info(input: &str, sys: &mut System, mut writer: impl std::io::Write) -> bool {
